@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Home</title>
+</head>
+
+<body>
+    <h1>Welcome to the Home Page</h1>
+    <p>This is the home page of the website.</p>
+    <image id="image" src="" alt="Home Page">
+</body>
+
+</html>
+
+<script>
+    let random = Math.floor(Math.random() * 100);
+    console.log(random);
+    let image = document.getElementById('image');
+    image.src = 'https://picsum.photos/id/' + random + "/1500/1000";
+    console.log(image);
+</script>
