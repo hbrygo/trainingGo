@@ -22,28 +22,11 @@
     <h1>Customer Information</h1>
     <p id="name">First Name: {{.FirstName}}</p>
     <p>Last Name: {{.LastName}}</p>
+    <p>Last Name: {{.ImagePath}}</p>
 
     <h1>Image</h1>
-    <p>Image: <img id="image" src="http://localhost:8080/image/AI-creation.png" alt="Profile Picture"
-            style="width: 100px; height: 100px;">
+    <p>Image: <img id="image" src="{{.ImagePath}}" alt="Profile Picture" style="width: 500px; height: 500px;">
     </p>
 </body>
 
 </html>
-
-<script>
-
-    // retirer les [] de la chaine de caractère
-    // name.innerHTML = name.innerHTML.replace("[", "");
-    // name.innerHTML = name.innerHTML.replace("]", "");
-    // console.log(name.innerHTML);
-    // launch the script whem the page is loaded
-
-    function loadPage() {
-        console.log("test");
-        let name = document.getElementById("name");
-        console.log(name.innerHTML);
-    };
-    // console.log("{{.profilePic}}");
-    // console.log("test");
-</script>

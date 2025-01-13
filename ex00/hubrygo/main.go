@@ -10,9 +10,9 @@ import (
 )
 
 type NameData struct {
-	FirstName []string
-	LastName  []string
-	imagePath []string
+	FirstName string
+	LastName  string
+	ImagePath string
 }
 
 func getMethod(w http.ResponseWriter, r *http.Request) {
@@ -35,6 +35,37 @@ func getMethod(w http.ResponseWriter, r *http.Request) {
 	http.ServeContent(w, r, fileInfo.Name(), fileInfo.ModTime(), file)
 }
 
+func parseImage(w http.ResponseWriter, r *http.Request) (string, error) {
+	file, handler, err := r.FormFile("profilePic")
+	if err != nil {
+		http.Error(w, "Error retrieving file", http.StatusBadRequest)
+		fmt.Println("Error retrieving file:", err)
+		return "", err
+	}
+	defer file.Close()
+
+	// Sauvegarde le fichier
+	savePath := "image/" + handler.Filename
+	fmt.Printf("savePath: %s\n", savePath)
+	outFile, err := os.Create(savePath)
+	if err != nil {
+		http.Error(w, "Error saving file", http.StatusInternalServerError)
+		fmt.Println("Error saving file:", err)
+		return "", err
+	}
+	defer outFile.Close()
+
+	// Copie le contenu du fichier téléchargé
+	_, err = io.Copy(outFile, file)
+	if err != nil {
+		http.Error(w, "Error writing file", http.StatusInternalServerError)
+		fmt.Println("Error writing file:", err)
+		return "", err
+	}
+	savePath = "http://localhost:8080/image/" + handler.Filename
+	return savePath, nil
+}
+
 func postMethod(w http.ResponseWriter, r *http.Request) {
 	err := r.ParseMultipartForm(10 << 20) // Limite à 10 Mo
 	if err != nil {
@@ -46,37 +77,43 @@ func postMethod(w http.ResponseWriter, r *http.Request) {
 	firstName := r.Form["firstName"]
 	lastName := r.Form["lastName"]
 
-	file, handler, err := r.FormFile("profilePic")
+	// file, handler, err := r.FormFile("profilePic")
+	// if err != nil {
+	// 	http.Error(w, "Error retrieving file", http.StatusBadRequest)
+	// 	fmt.Println("Error retrieving file:", err)
+	// 	return
+	// }
+	// defer file.Close()
+
+	// // Sauvegarde le fichier
+	// savePath := "image/" + handler.Filename
+	// fmt.Printf("savePath: %s\n", savePath)
+	// outFile, err := os.Create(savePath)
+	// if err != nil {
+	// 	http.Error(w, "Error saving file", http.StatusInternalServerError)
+	// 	fmt.Println("Error saving file:", err)
+	// 	return
+	// }
+	// defer outFile.Close()
+
+	// // Copie le contenu du fichier téléchargé
+	// _, err = io.Copy(outFile, file)
+	// if err != nil {
+	// 	http.Error(w, "Error writing file", http.StatusInternalServerError)
+	// 	fmt.Println("Error writing file:", err)
+	// 	return
+	// }
+
+	savePath, err := parseImage(w, r)
 	if err != nil {
-		http.Error(w, "Error retrieving file", http.StatusBadRequest)
-		fmt.Println("Error retrieving file:", err)
 		return
 	}
-	defer file.Close()
-
-	// Sauvegarde le fichier
-	savePath := "image/" + handler.Filename
-	outFile, err := os.Create(savePath)
-	if err != nil {
-		http.Error(w, "Error saving file", http.StatusInternalServerError)
-		fmt.Println("Error saving file:", err)
-		return
-	}
-	defer outFile.Close()
-
-	// Copie le contenu du fichier téléchargé
-	_, err = io.Copy(outFile, file)
-	if err != nil {
-		http.Error(w, "Error writing file", http.StatusInternalServerError)
-		fmt.Println("Error writing file:", err)
-		return
-	}
-
-	savePath = "http://localhost:8080/" + handler.Filename
+	// savePath = "http://localhost:8080/image/" + handler.Filename
+	fmt.Printf("savePath: %s\n", savePath)
 	data := NameData{
-		FirstName: firstName,
-		LastName:  lastName,
-		imagePath: []string{savePath},
+		FirstName: firstName[0],
+		LastName:  lastName[0],
+		ImagePath: savePath,
 	}
 	fmt.Printf("data: %v\n", data)
 	pageName := r.URL.Path[1:]
@@ -86,8 +123,11 @@ func postMethod(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Error parsing template", http.StatusInternalServerError)
 		return
 	}
-	// imagePath := "<img src='" + savePath + "' alt='gopher' style='width:235px;height:320px;'>"
-	tmpl.Execute(w, data)
+	err = tmpl.Execute(w, data)
+	if err != nil {
+		http.Error(w, "Error executing template", http.StatusInternalServerError)
+		return
+	}
 }
 
 func getPage(w http.ResponseWriter, r *http.Request) {
