@@ -1,0 +1,124 @@
+<div>
+    <h3>Create a chat room</h3>
+    <!-- <form action="/createChatRoom" method="POST"> -->
+    <input type="text" name="chatRoomName" placeholder="Chat room name" required>
+    <button type="submit" onclick="createRoom()">Create</button>
+    <!-- </form> -->
+    <h3>Join chat room</h3>
+    <!-- <form action="/joinChatRoom" method="POST"> -->
+    <input type="text" name="chatRoomName" placeholder="Chat room name" required>
+    <button type="submit">Join</button>
+    <!-- </form> -->
+    <h3>All chat room</h3>
+    <div id="chatRoomZone" class="chatRoomZone"></div>
+</div>
+
+<script>
+    function handleChatRoomClick(roomName) {
+        console.log(roomName);
+        // ask the username
+        let username = prompt("Please enter your name", "Harry Potter");
+        window.location.href = `/chat?room=${roomName}&username=${username}`;
+    }
+
+    function createRoom() {
+        let name = document.getElementsByName('chatRoomName')[0].value;
+        console.log(name);
+        fetch('/room', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ name: name })
+        })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log("Room created successfully:", data);
+                let chatRoomZone = document.getElementById('chatRoomZone');
+                console.log(chatRoomZone);
+                if (chatRoomZone.children.length === 1 && chatRoomZone.children[0].innerHTML === 'No chat room') {
+                    chatRoomZone.innerHTML = '';
+                }
+                let newChatRoom = document.createElement('div');
+                newChatRoom.classList.add('box');
+                newChatRoom.id = name;
+                newChatRoom.innerHTML = name;
+                newChatRoom.addEventListener('click', () => handleChatRoomClick(newChatRoom.id));
+                document.getElementById('chatRoomZone').appendChild(newChatRoom);
+            })
+            .catch(error => {
+                console.error("Fetch error:", error);
+            });
+    }
+
+    function displayChatRoom(data) {
+        const chatRoomZone = document.getElementById('chatRoomZone');
+        if (data.length === 0) {
+            let noChatRoom = document.createElement('div');
+            noChatRoom.innerHTML = 'No chat room';
+            chatRoomZone.appendChild(noChatRoom);
+            return;
+        }
+        data.forEach((roomName, index) => {
+            if (index % 3 === 0) {
+                let newLine = document.createElement('br');
+                chatRoomZone.appendChild(newLine);
+            }
+            let newChatRoom = document.createElement('div');
+            newChatRoom.classList.add('box');
+            newChatRoom.id = roomName;
+            newChatRoom.innerHTML = roomName;
+            newChatRoom.addEventListener('click', () => handleChatRoomClick(roomName));
+            chatRoomZone.appendChild(newChatRoom);
+        });
+    }
+
+    fetch('/chatRoom', { method: 'POST' })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log("Page fetched successfully:", data);
+            if (Array.isArray(data)) {
+                displayChatRoom(data);
+            }
+        })
+        .catch(error => {
+            console.error("Fetch error:", error);
+        });
+</script>
+
+<style>
+    .box {
+        margin: 10px;
+        overflow: hidden;
+        border-radius: 28px;
+        /* border: 1px solid black; */
+        background-color: antiquewhite;
+        width: calc(25% - 20px);
+        height: 15vh;
+        display: flex;
+        text-align: center;
+        justify-content: center;
+        align-items: center;
+        box-sizing: border-box;
+    }
+
+    .box:hover {
+        background-color: #f0f0f0;
+    }
+
+    .chatRoomZone {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+</style>
