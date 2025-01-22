@@ -1,35 +1,103 @@
 <div>
     <h3>Create a chat room</h3>
     <!-- <form action="/createChatRoom" method="POST"> -->
-    <input type="text" name="chatRoomName" placeholder="Chat room name" required>
+    <input type="text" id="createInput" name="chatRoomName" placeholder="Chat room name" required>
     <button type="submit" onclick="createRoom()">Create</button>
     <!-- </form> -->
-    <h3>Join chat room</h3>
+    <h3>User Name</h3>
     <!-- <form action="/joinChatRoom" method="POST"> -->
-    <input type="text" name="chatRoomName" placeholder="Chat room name" required>
-    <button type="submit">Join</button>
+    <input type="text" id="userName" name="userName" placeholder="Chat room name" required>
+    <!-- <button type="submit">Join</button> -->
     <!-- </form> -->
     <h3>All chat room</h3>
     <div id="chatRoomZone" class="chatRoomZone"></div>
 </div>
 
 <script>
-    function handleChatRoomClick(roomName) {
-        console.log(roomName);
+    const createInput = document.getElementById('createInput');
+
+    createInput.addEventListener('keypress', function (event) {
+        if (event.keyCode === 13) {
+            event.preventDefault();
+            createRoom();
+        }
+    });
+
+    function getCookie(name) {
+        console.log('inside getCookie');
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                // Does this cookie string begin with the name we want?
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    function handleChatRoomClick(roomKey) {
+        console.log(roomKey);
         // ask the username
-        let username = prompt("Please enter your name", "Harry Potter");
-        window.location.href = `/chat?room=${roomName}&username=${username}`;
+        // let username = prompt("Please enter your name", "Harry Potter");
+        let username = document.getElementById('userName').value;
+        if (username.trim() === '') {
+            if (getCookie('username') != null) {
+                username = getCookie('username');
+            } else {
+                alert('Please enter your name');
+                return;
+            }
+        } else {
+            let profilePic = Math.floor(Math.random() * 100);
+            document.cookie = `porfilePic=${profilePic}; SameSite=None; Secure`;
+        }
+        // if (getCookie('porfilePic') == null) {
+        //     let profilePic = Math.floor(Math.random() * 100);
+        //     document.cookie = `porfilePic=${profilePic}; SameSite=None; Secure`;
+        // }
+        // let profilePic = Math.floor(Math.random() * 100);
+        // console.log(`profilePic: ${profilePic}`);
+        // document.cookie = `porfilePic=${profilePic}; SameSite=None; Secure`;
+        document.cookie = `username=${username}; SameSite=None; Secure`;
+        document.cookie = `roomKey=${roomKey}; SameSite=None; Secure`;
+        // console.log(`Chat room clicked: ${roomKey}`);
+        window.location.href = `rooms/${roomKey}`;
+    }
+
+    const roomEventSource = new EventSource('/roomEvents');
+    roomEventSource.onmessage = function (event) {
+        const room = JSON.parse(event.data);
+        addChatRoom(room.name, room.key);
+    };
+
+    function addChatRoom(roomName, key) {
+        let chatRoomZone = document.getElementById('chatRoomZone');
+        let newChatRoom = document.createElement('div');
+        newChatRoom.classList.add('box');
+        newChatRoom.id = key;
+        newChatRoom.innerHTML = roomName;
+        newChatRoom.addEventListener('click', () => handleChatRoomClick(key));
+        chatRoomZone.appendChild(newChatRoom);
     }
 
     function createRoom() {
         let name = document.getElementsByName('chatRoomName')[0].value;
+        let key = Math.random().toString(16).substr(2, 16);
+        if (name.trim() === '') {
+            return;
+        }
         console.log(name);
         fetch('/room', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ name: name })
+            body: JSON.stringify({ name: name, key: key })
         })
             .then(response => {
                 if (!response.ok) {
@@ -39,17 +107,7 @@
             })
             .then(data => {
                 console.log("Room created successfully:", data);
-                let chatRoomZone = document.getElementById('chatRoomZone');
-                console.log(chatRoomZone);
-                if (chatRoomZone.children.length === 1 && chatRoomZone.children[0].innerHTML === 'No chat room') {
-                    chatRoomZone.innerHTML = '';
-                }
-                let newChatRoom = document.createElement('div');
-                newChatRoom.classList.add('box');
-                newChatRoom.id = name;
-                newChatRoom.innerHTML = name;
-                newChatRoom.addEventListener('click', () => handleChatRoomClick(newChatRoom.id));
-                document.getElementById('chatRoomZone').appendChild(newChatRoom);
+                createInput.value = '';
             })
             .catch(error => {
                 console.error("Fetch error:", error);
@@ -57,6 +115,7 @@
     }
 
     function displayChatRoom(data) {
+        data = data.sort();
         const chatRoomZone = document.getElementById('chatRoomZone');
         if (data.length === 0) {
             let noChatRoom = document.createElement('div');
@@ -64,21 +123,16 @@
             chatRoomZone.appendChild(noChatRoom);
             return;
         }
-        data.forEach((roomName, index) => {
+        data.forEach((room, index) => {
             if (index % 3 === 0) {
                 let newLine = document.createElement('br');
                 chatRoomZone.appendChild(newLine);
             }
-            let newChatRoom = document.createElement('div');
-            newChatRoom.classList.add('box');
-            newChatRoom.id = roomName;
-            newChatRoom.innerHTML = roomName;
-            newChatRoom.addEventListener('click', () => handleChatRoomClick(roomName));
-            chatRoomZone.appendChild(newChatRoom);
+            addChatRoom(room.name, room.key);
         });
     }
 
-    fetch('/chatRoom', { method: 'POST' })
+    fetch('/chatRoom', { method: 'GET' })
         .then(response => {
             if (!response.ok) {
                 throw new Error(`HTTP error! Status: ${response.status}`);

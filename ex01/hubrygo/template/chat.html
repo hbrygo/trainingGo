@@ -56,60 +56,54 @@
         window.location.href = `/${page}`;
     }
 
-
-    // const msgerForm = get(".msger-inputarea");
     const msgerInput = document.getElementById('input');
     const msgerChat = document.getElementById('msgArea');
 
-    //     const BOT_MSGS = [
-    //         "Hi, how are you?",
-    //         "Ohh... I can't understand what you trying to say. Sorry!",
-    //         "I like to play games... But I don't know how to play!",
-    //         "Sorry if my answers are not relevant. :))",
-    //         "I feel sleepy! :("
-    //     ];
-
-    //     // Icons made by Freepik from www.flaticon.com
-
-
-
-    const BOT_IMG = "https://image.flaticon.com/icons/svg/327/327779.svg";
-    const PERSON_IMG = "https://image.flaticon.com/icons/svg/145/145867.svg";
+    let imageId = getCookie("porfilePic");
     const sendButton = document.getElementById('sendButton');
-    // //     const BOT_NAME = "BOT";
-    // // const PERSON_NAME = "Sajad";
-    // const sendButton = document.getElementById('sendButton');
-    // sendButton.addEventListener("click", event => {
-    //     event.preventDefault();
 
-    //     const msgText = msgerInput.value;
-    //     if (!msgText) return;
+    // console.log(PERSON_IMG)
+    const eventSource = new EventSource('/events');
+    eventSource.onmessage = function (event) {
+        const message = JSON.parse(event.data);
+        console.log(message);
+        if (message.roomId != roomKey)
+            return;
+        if (message.author == username) {
+            appendMessage(message.author, message.imageId, "right", message.content, message.time);
+        } else {
+            appendMessage(message.author, message.imageId, "left", message.content, message.time);
+        }
+    };
 
-    //     appendMessage('me', PERSON_IMG, "right", msgText);
-    //     msgerInput.value = "";
-
-    //     // botResponse();
-    // });
-
-
+    msgerInput.addEventListener("keypress", event => {
+        if (event.keyCode == 13) {
+            sendButton.click();
+        }
+        // console.log(event);
+    });
     sendButton.addEventListener("click", event => {
         event.preventDefault();
 
         const msgText = msgerInput.value;
-        if (!msgText) return;
+        if (!msgText || msgText.trim() === '') return;
 
-        appendMessage(username, PERSON_IMG, "right", msgText);
         msgerInput.value = "";
-        console.log('coucou')
-        fetch('/sendMessage', {
+
+        let fetchUrl = '/rooms/' + roomKey + "/messages";
+        let imageId = getCookie('porfilePic');
+        console.log(fetchUrl);
+
+        fetch(fetchUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                roomName: room,
                 author: username,
-                content: msgText
+                content: msgText,
+                imageId: imageId,
+                roomId: roomKey
             })
         })
             .then(response => {
@@ -120,7 +114,7 @@
             })
             .then(text => {
                 if (text) {
-                    const data = JSON.parse(text); // Parsez le texte en JSON
+                    const data = JSON.parse(text);
                     console.log("Message sent successfully:", data);
                 } else {
                     console.error("Empty response");
@@ -131,15 +125,40 @@
             });
     });
 
-    function appendMessage(name, img, side, text) {
-        //   Simple solution for small apps
+    function parseTime(time) {
+        const date = new Date(time);
+        const now = new Date();
+        if (date.getDate() == now.getDate()) {
+            let hours = date.getHours();
+            let minutes = date.getMinutes();
+            let ampm = hours >= 12 ? 'PM' : 'AM';
+            hours = hours % 12;
+            hours = hours ? hours : 12;
+            minutes = minutes < 10 ? '0' + minutes : minutes;
+            const strTime = hours + ':' + minutes + ' ' + ampm;
+            return strTime;
+        } else {
+            return date.toLocaleDateString();
+        }
+    }
+
+
+    function appendMessage(name, img, side, text, time) {
+        console.log(name.length);
+        if (name.length > 20) {
+            name = name.substr(0, 19) + ".";
+        }
+        console.log(name);
+        time = parseTime(time);
+        console.log(time);
+        let imageUrl = "https://picsum.photos/id/" + img + "/1500/1000";
         const msgHTML = `
         <div class="msg ${side}-msg">
-          <div class="msg-img" style="background-image: url(${img})"></div>
+          <div class="msg-img" style="background-image: url(${imageUrl})"></div>
 
           <div class="msg-bubble">
             <div class="msg-info">
-              <div class="msg-info-name">${name}</div>
+              <div class="msg-info-name">${name}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;${time}</div>
               </div>
               
               <div class="msg-text">${text}</div>
@@ -150,56 +169,43 @@
         msgerChat.insertAdjacentHTML("beforeend", msgHTML);
         msgerChat.scrollTop += 500;
     }
-    // <div class="msg-info-time">${formatDate(new Date())}</div>
 
-    //     function botResponse() {
-    //         const r = random(0, BOT_MSGS.length - 1);
-    //         const msgText = BOT_MSGS[r];
-    //         const delay = msgText.split(" ").length * 100;
+    function getCookie(name) {
+        console.log('inside getCookie');
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
 
-    //         setTimeout(() => {
-    //             appendMessage(BOT_NAME, BOT_IMG, "left", msgText);
-    //         }, delay);
-    //     }
+    let roomKey = getCookie('roomKey');
+    let username = getCookie('username');
+    console.log(roomKey);
 
-    //     // Utils
-    //     function get(selector, root = document) {
-    //         return root.querySelector(selector);
-    //     }
-
-    //     function formatDate(date) {
-    //         const h = "0" + date.getHours();
-    //         const m = "0" + date.getMinutes();
-
-    //         return `${h.slice(-2)}:${m.slice(-2)}`;
-    //     }
-
-    //     function random(min, max) {
-    //         return Math.floor(Math.random() * (max - min) + min);
-    //     }
-
-    let query = window.location.search;
-    let room = query.split('=')[1];
-    room = room.split('&')[0];
-    console.log(room);
-    let username = query.split('=')[2];
-    console.log(username);
-    fetch('/getOldMessages', { // Assurez-vous que l'URL est correcte
+    fetch('/getOldMessages', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-            roomName: room // Assurez-vous que le nom du champ correspond à celui attendu par le serveur
+            roomKey: roomKey
         })
     }).then(res => res.json())
         .then(data => {
             console.log(data);
             data.forEach(element => {
                 if (element.author == username) {
-                    appendMessage(username, PERSON_IMG, "right", element.content);
+                    appendMessage(element.author, element.imageId, "right", element.content, element.time);
                 } else {
-                    appendMessage(element.author, BOT_IMG, "left", element.content);
+                    appendMessage(element.author, element.imageId, "left", element.content, element.time);
                 }
             });
         })
