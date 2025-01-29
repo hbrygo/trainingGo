@@ -1,3 +1,5 @@
+<!DOCTYPE html>
+<html lang="en">
 <div>
     <h3>Create a chat room</h3>
     <!-- <form action="/createChatRoom" method="POST"> -->
@@ -12,6 +14,8 @@
     <h3>All chat room</h3>
     <div id="chatRoomZone" class="chatRoomZone"></div>
 </div>
+
+</html>
 
 <script>
     const createInput = document.getElementById('createInput');
@@ -124,10 +128,10 @@
             return;
         }
         data.forEach((room, index) => {
-            if (index % 3 === 0) {
-                let newLine = document.createElement('br');
-                chatRoomZone.appendChild(newLine);
-            }
+            // if (index % 2 === 0 && index !== 0) {
+            //     let newLine = document.createElement('br');
+            //     chatRoomZone.appendChild(newLine);
+            // }
             addChatRoom(room.name, room.key);
         });
     }
@@ -151,28 +155,117 @@
 </script>
 
 <style>
-    .box {
-        margin: 10px;
-        overflow: hidden;
-        border-radius: 28px;
-        /* border: 1px solid black; */
-        background-color: antiquewhite;
-        width: calc(25% - 20px);
-        height: 15vh;
+    body {
+        font-family: Arial, sans-serif;
+        background-color: #f7f9fc;
+        margin: 0;
+        padding: 0;
         display: flex;
-        text-align: center;
         justify-content: center;
         align-items: center;
-        box-sizing: border-box;
+        height: 100vh;
+        color: #333;
     }
 
-    .box:hover {
-        background-color: #f0f0f0;
+    div {
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        padding: 20px;
+        width: 90%;
+        max-width: 400px;
+    }
+
+    h3 {
+        font-size: 1.2rem;
+        margin-bottom: 10px;
+        color: #4a90e2;
+    }
+
+    input[type="text"] {
+        width: 100%;
+        padding: 10px;
+        margin-bottom: 15px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        box-sizing: border-box;
+        font-size: 1rem;
+    }
+
+    input[type="text"]:focus {
+        border-color: #4a90e2;
+        outline: none;
+        box-shadow: 0 0 4px rgba(74, 144, 226, 0.5);
+    }
+
+    button {
+        width: 100%;
+        padding: 10px;
+        background-color: #4a90e2;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+    }
+
+    button:hover {
+        background-color: #357ab8;
     }
 
     .chatRoomZone {
-        display: flex;
-        flex-wrap: wrap;
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        /* Deux colonnes */
+        gap: 10px;
+        margin-top: 15px;
         justify-content: center;
     }
+
+    .box {
+        margin: 10px;
+        overflow: hidden;
+        border-radius: 12px;
+        background-color: #f0f0f0;
+        height: 80px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        transition: transform 0.3s ease, background-color 0.3s ease;
+    }
+
+    .box:hover {
+        background-color: #e0e0e0;
+        transform: translateY(-5px);
+    }
+
+    /* .chatRoomZone {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+        margin-top: 15px;
+        justify-content: center;
+    }
+
+    .box {
+        overflow: hidden;
+        border-radius: 12px;
+        background-color: #f0f0f0;
+        height: 80px;
+        width: 75%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        transition: transform 0.3s ease, background-color 0.3s ease;
+    }
+
+    .box:hover {
+        background-color: #e0e0e0;
+        transform: translateY(-5px);
+    } */
 </style>

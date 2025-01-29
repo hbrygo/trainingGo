@@ -1,3 +1,5 @@
+<!DOCTYPE html>
+<html lang="en">
 <div id="app" class="app">
     <section class="msger">
         <header class="msger-header">
@@ -10,9 +12,9 @@
             </div>
         </header>
 
-        <main class="msger-chat" id="msgArea">
+        <main class="msger-chat" id="msgArea" ondrop="dropHandler(event);" ondragover="dragOverHandler(event);">
             <!-- <div class="msg left-msg">
-                <div class="msg-img" style="background-image: url(https://image.flaticon.com/icons/svg/327/327779.svg)">
+                    <div class="msg-img" style="background-image: url(https://image.flaticon.com/icons/svg/327/327779.svg)">
                 </div>
 
                 <div class="msg-bubble">
@@ -36,22 +38,100 @@
                         <div class="msg-info-name">Sajad</div>
                         <div class="msg-info-time">12:46</div>
                     </div>
-
+                    
                     <div class="msg-text">
                         You can change your name in JS section!
                     </div>
                 </div>
             </div> -->
         </main>
+        <!-- <div id="drop_zone" ondrop="dropHandler(event);" ondragover="dragOverHandler(event);">
+            <p>Drag one or more files to this <i>drop zone</i>.</p>
+        </div> -->
 
-        <div class="msger-inputarea">
-            <input type="text" id="input" class="msger-input" placeholder="Enter your message...">
+        <div class="msger-inputarea" id="drop_zone" ondrop="dropHandler(event);" ondragover="dragOverHandler(event);">
+            <!-- <input type="file" id="inputFile"> -->
+            <div id="messageArea">
+                <input type="text" id="input" class="msger-input text-border" placeholder="Enter your message...">
+            </div>
             <div id="sendButton" class="msger-send-btn">Send</div>
         </div>
     </section>
 </div>
 
+</html>
+
 <script>
+    function removeImage(button) {
+        const previewDiv = button.parentElement;
+        previewDiv.remove();
+    }
+
+    function showImage(imagePath) {
+        console.log(imagePath);
+        imagePath = "http://localhost:8080/" + imagePath;
+        imagePath = imagePath.replace("localhost", window.location.hostname);
+        console.log(imagePath);
+        const dropZone = document.getElementById('messageArea');
+        const newDiv = document.createElement("div");
+        newDiv.classList.add("preview");
+        // ajouter un id
+        newDiv
+        newDiv.innerHTML = `
+        <img src="${imagePath}" alt="Uploaded Image" class="imagePreview">
+        <button class="remove-btn" onclick="removeImage(this)">×</button>
+    `;
+        dropZone.appendChild(newDiv);
+    }
+
+    function dropHandler(ev) {
+        console.log("File(s) dropped");
+
+        // Prevent default behavior (Prevent file from being opened)
+        ev.preventDefault();
+
+        if (ev.dataTransfer.items) {
+            // Use DataTransferItemList interface to access the file(s)
+            [...ev.dataTransfer.items].forEach((item, i) => {
+                // If dropped items aren't files, reject them
+                if (item.kind === "file") {
+                    const file = item.getAsFile();
+                    console.log(`… file[${i}].name = ${file.name}`);
+                    if (file.name.endsWith('.jpg') || file.name.endsWith('.jpeg') || file.name.endsWith('.png') || file.name.endsWith('.gif')) {
+                        const formData = new FormData();
+                        formData.append('file', file);
+                        formData.append('roomId', roomKey);
+                        fetch('/upload', {
+                            method: 'POST',
+                            body: formData
+                        })
+                            .then(response => response.json())
+                            .then(data => {
+                                console.log(data);
+                                showImage(data.imagePath); // Utiliser le chemin relatif de l'image
+                            })
+                            .catch(error => {
+                                console.error('Error:', error);
+                            });
+                    }
+                }
+            });
+        } else {
+            // Use DataTransfer interface to access the file(s)
+            [...ev.dataTransfer.files].forEach((file, i) => {
+                console.log(`… file[${i}].name = ${file.name}`);
+            });
+        }
+    }
+
+    function dragOverHandler(ev) {
+        console.log("File(s) in drop zone");
+
+        // Prevent default behavior (Prevent file from being opened)
+        ev.preventDefault();
+    }
+
+
     function loadPage(page) {
         window.location.href = `/${page}`;
     }
@@ -61,18 +141,21 @@
 
     let imageId = getCookie("porfilePic");
     const sendButton = document.getElementById('sendButton');
+    let roomKey = getCookie('roomKey');
+    let username = getCookie('username');
+    // console.log(roomKey);
 
     // console.log(PERSON_IMG)
-    const eventSource = new EventSource('/events');
+    const eventSource = new EventSource('/rooms/' + roomKey + '/messages');
     eventSource.onmessage = function (event) {
         const message = JSON.parse(event.data);
         console.log(message);
         if (message.roomId != roomKey)
             return;
-        if (message.author == username) {
-            appendMessage(message.author, message.imageId, "right", message.content, message.time);
+        if (message.imageId == imageId) {
+            appendMessage(message.author, message.imageId, "right", message.content, message.time, message.tabImage);
         } else {
-            appendMessage(message.author, message.imageId, "left", message.content, message.time);
+            appendMessage(message.author, message.imageId, "left", message.content, message.time, message.tabImage);
         }
     };
 
@@ -94,6 +177,22 @@
         let imageId = getCookie('porfilePic');
         console.log(fetchUrl);
 
+        let tabImage = [];
+        console.log(msgerInput.parentElement.childNodes);
+        if (msgerInput.parentElement.childNodes.length > 3) {
+            for (let i = 3; i < msgerInput.parentElement.childNodes.length; i++) {
+                // console.log("Image detected: " + i);
+                // console.log(msgerInput.parentElement.childNodes[i].childNodes[1].src);
+                tabImage.push(msgerInput.parentElement.childNodes[i].childNodes[1].src);
+            }
+        }
+
+        // remove the image from the input
+        console.log(msgerInput);
+        while (msgerInput.nextElementSibling != null) {
+            msgerInput.nextElementSibling.remove();
+        }
+
         fetch(fetchUrl, {
             method: 'POST',
             headers: {
@@ -103,7 +202,8 @@
                 author: username,
                 content: msgText,
                 imageId: imageId,
-                roomId: roomKey
+                roomId: roomKey,
+                tabImage: tabImage
             })
         })
             .then(response => {
@@ -143,7 +243,7 @@
     }
 
 
-    function appendMessage(name, img, side, text, time) {
+    function appendMessage(name, img, side, text, time, tabImage) {
         console.log(name.length);
         if (name.length > 20) {
             name = name.substr(0, 19) + ".";
@@ -152,7 +252,7 @@
         time = parseTime(time);
         console.log(time);
         let imageUrl = "https://picsum.photos/id/" + img + "/1500/1000";
-        const msgHTML = `
+        let msgHTML = `
         <div class="msg ${side}-msg">
           <div class="msg-img" style="background-image: url(${imageUrl})"></div>
 
@@ -162,6 +262,17 @@
               </div>
               
               <div class="msg-text">${text}</div>
+              `;
+
+        if (tabImage.length > 0) {
+            msgHTML += `<div class="msg-text">`;
+            tabImage.forEach(element => {
+                msgHTML += `<img src="${element}" alt="Uploaded Image" class="imagePreview">`;
+            });
+            msgHTML += `</div>`;
+        }
+
+        msgHTML += `
               </div>
               </div>
               `;
@@ -186,9 +297,6 @@
         return cookieValue;
     }
 
-    let roomKey = getCookie('roomKey');
-    let username = getCookie('username');
-    console.log(roomKey);
 
     fetch('/getOldMessages', {
         method: 'POST',
@@ -202,10 +310,10 @@
         .then(data => {
             console.log(data);
             data.forEach(element => {
-                if (element.author == username) {
-                    appendMessage(element.author, element.imageId, "right", element.content, element.time);
+                if (element.author == username && element.imageId == imageId) {
+                    appendMessage(element.author, element.imageId, "right", element.content, element.time, element.tabImage);
                 } else {
-                    appendMessage(element.author, element.imageId, "left", element.content, element.time);
+                    appendMessage(element.author, element.imageId, "left", element.content, element.time, element.tabImage);
                 }
             });
         })
@@ -216,6 +324,61 @@
 </script>
 
 <style>
+    .imagePreview {
+        width: 80px;
+        height: 80px;
+        border-radius: 10px;
+    }
+
+    .text-border {
+        /* border: 1px solid #ccc; */
+        border-radius: 3px;
+        padding: 10px;
+        /* padding: 6px 10px; */
+        /* width: 100%; */
+        /* margin-bottom: 10px; */
+    }
+
+    .preview {
+        position: relative;
+        display: inline-block;
+    }
+
+    .remove-btn {
+        position: absolute;
+        top: 5px;
+        right: 5px;
+        background-color: white;
+        /* color: black; */
+        border: 1px solid rgb(200, 200, 200);
+        border-radius: 50%;
+        /* Forme ronde */
+        width: 24px;
+        /* Taille du bouton */
+        height: 24px;
+        /* Taille du bouton */
+        text-align: center;
+        cursor: pointer;
+        display: none;
+        font-size: 16px;
+        /* Taille de la croix */
+        font-weight: bold;
+        line-height: 22px;
+        /* Alignement vertical */
+        padding: 0;
+        margin-bottom: 10px;
+    }
+
+    .remove-btn:hover {
+        background-color: rgb(230, 230, 230);
+        /* Effet au survol */
+        border-color: rgb(180, 180, 180);
+    }
+
+    .preview:hover .remove-btn {
+        display: block;
+    }
+
     .app {
         display: flex;
         justify-content: center;
@@ -374,10 +537,11 @@
     }
 
     .msger-inputarea * {
-        padding: 10px;
+        /* padding: 10px; */
         border: none;
-        border-radius: 3px;
+        /* border-radius: 3px; */
         font-size: 1em;
+        /* width: 102%; */
     }
 
     .msger-input {
@@ -391,7 +555,14 @@
         color: #fff;
         font-weight: bold;
         cursor: pointer;
+        text-align: center;
+        justify-content: center;
+        align-items: center;
+        display: flex;
+        border-radius: 5px;
+        min-width: 80px;
         transition: background 0.23s;
+        width: 25%;
     }
 
     .msger-send-btn:hover {

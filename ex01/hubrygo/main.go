@@ -11,11 +11,12 @@ import (
 )
 
 type Message struct {
-	Author  string `json:"author"`
-	Content string `json:"content"`
-	Time    string `json:"time"`
-	Image   string `json:"imageId"`
-	RoomId  string `json:"roomId"`
+	Author   string   `json:"author"`
+	Content  string   `json:"content"`
+	Time     string   `json:"time"`
+	Image    string   `json:"imageId"`
+	RoomId   string   `json:"roomId"`
+	TabImage []string `json:"tabImage"`
 }
 
 type ChatRoom struct {
@@ -88,6 +89,8 @@ func createRoom(w http.ResponseWriter, r *http.Request) {
 		// fmt.Printf("Room created: %v\n", chatRooms[key])
 		notifyRoomClients(chatRooms[key])
 	}
+	// creer un dossier pour les images
+	os.Mkdir("images/"+key, 0777)
 	sendAllChatRoom(w, r)
 }
 
@@ -97,7 +100,6 @@ func sendOldMessages(w http.ResponseWriter, r *http.Request) {
 		RoomKey string `json:"roomKey"`
 	}
 
-	// Lire le corps de la requête pour le débogage
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, "Failed to read request body", http.StatusInternalServerError)
@@ -123,10 +125,11 @@ func sendOldMessages(w http.ResponseWriter, r *http.Request) {
 func sendMessage(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("sendMessage called\n")
 	var requestData struct {
-		Author  string `json:"author"`
-		Content string `json:"content"`
-		Image   string `json:"imageId"`
-		RoomId  string `json:"roomId"`
+		Author   string   `json:"author"`
+		Content  string   `json:"content"`
+		Image    string   `json:"imageId"`
+		RoomId   string   `json:"roomId"`
+		ImageTab []string `json:"tabImage"`
 	}
 
 	body, err := io.ReadAll(r.Body)
@@ -145,17 +148,18 @@ func sendMessage(w http.ResponseWriter, r *http.Request) {
 	roomKey := requestData.RoomId
 	if room, exists := chatRooms[roomKey]; exists {
 		message := &Message{
-			Author:  requestData.Author,
-			Content: requestData.Content,
-			Time:    time.Now().Format(time.RFC3339),
-			Image:   requestData.Image,
-			RoomId:  roomKey,
+			Author:   requestData.Author,
+			Content:  requestData.Content,
+			Time:     time.Now().Format(time.RFC3339),
+			Image:    requestData.Image,
+			RoomId:   roomKey,
+			TabImage: requestData.ImageTab,
 		}
 		room.Messages = append(room.Messages, message)
-		room.LastActivity = time.Now() // Mettre à jour LastActivity
+		room.LastActivity = time.Now()
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]string{"status": "Message sent successfully"})
-		notifyClients(message) // Notifier uniquement les clients de cette salle
+		notifyClients(message)
 	} else {
 		http.Error(w, "Room not found", http.StatusNotFound)
 	}
@@ -178,6 +182,7 @@ func notifyRoomClients(room *ChatRoom) {
 }
 
 func sseHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("sseHandler called\n")
 	flusher, ok := w.(http.Flusher)
 	if !ok {
 		http.Error(w, "Streaming unsupported!", http.StatusInternalServerError)
@@ -278,16 +283,66 @@ func joinRoom(w http.ResponseWriter, r *http.Request) {
 	http.ServeContent(w, r, fileInfo.Name(), fileInfo.ModTime(), file)
 }
 
+func uploadFile(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("uploadFile called")
+	r.ParseMultipartForm(10 << 20)
+	file, handler, err := r.FormFile("file")
+	if err != nil {
+		fmt.Println("Error retrieving the file")
+		fmt.Println(err)
+		return
+	}
+	roomId := "images/" + r.FormValue("roomId") + "/"
+	defer file.Close()
+	fmt.Printf("Uploaded file: %+v\n", handler.Filename)
+	f, err := os.OpenFile(roomId+handler.Filename, os.O_WRONLY|os.O_CREATE, 0666)
+	if err != nil {
+		fmt.Println("Error creating the file")
+		fmt.Println(err)
+		return
+	}
+	defer f.Close()
+	io.Copy(f, file)
+	w.Header().Set("Content-Type", "application/json")
+	imagePath := roomId + handler.Filename
+	json.NewEncoder(w).Encode(map[string]string{"status": "File uploaded successfully", "imagePath": imagePath})
+}
+
 func main() {
 	go clearRoom()
 	http.HandleFunc("/", getMethod)
-	http.HandleFunc("/events", sseHandler)
+	http.HandleFunc("GET /rooms/{id}/messages", sseHandler)
 	http.HandleFunc("/roomEvents", roomSseHandler)
 	http.HandleFunc("GET /rooms/{id}", joinRoom)
 	http.HandleFunc("POST /room", createRoom)
 	http.HandleFunc("POST /rooms/{id}/messages", sendMessage)
 	http.HandleFunc("POST /getOldMessages", sendOldMessages)
 	http.HandleFunc("GET /chatRoom", sendAllChatRoom)
+	http.HandleFunc("POST /upload", uploadFile)
+	http.Handle("/images/", http.StripPrefix("/images/", http.FileServer(http.Dir("images"))))
 	fmt.Println("Serveur démarré sur : http://localhost:8080")
-	http.ListenAndServe(":8080", nil)
+	fmt.Println("Serveur démarré sur : https://localhost:8081")
+	go func() {
+		err := http.ListenAndServe(":8080", nil)
+		if err != nil {
+			fmt.Println(err)
+		}
+	}()
+	err := http.ListenAndServeTLS(":8081", "cert.csr", "cert.key", nil)
+	if err != nil {
+		fmt.Println(err)
+	}
 }
+
+// Generate private key (.key)
+
+// # Key considerations for algorithm "RSA" ≥ 2048-bit
+// openssl genrsa -out server.key 2048
+
+// # Key considerations for algorithm "ECDSA" ≥ secp384r1
+// # List ECDSA the supported curves (openssl ecparam -list_curves)
+// openssl ecparam -genkey -name secp384r1 -out server.key
+
+// Generation of self-signed(x509) public key (PEM-encodings .pem|.crt) based on the private (.key)
+
+// openssl req -new -x509 -sha256 -key server.key -out server.crt -days 3650
