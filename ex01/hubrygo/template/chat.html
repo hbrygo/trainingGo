@@ -168,15 +168,6 @@
     sendButton.addEventListener("click", event => {
         event.preventDefault();
 
-        const msgText = msgerInput.value;
-        if (!msgText || msgText.trim() === '') return;
-
-        msgerInput.value = "";
-
-        let fetchUrl = '/rooms/' + roomKey + "/messages";
-        let imageId = getCookie('porfilePic');
-        console.log(fetchUrl);
-
         let tabImage = [];
         console.log(msgerInput.parentElement.childNodes);
         if (msgerInput.parentElement.childNodes.length > 3) {
@@ -186,9 +177,18 @@
                 tabImage.push(msgerInput.parentElement.childNodes[i].childNodes[1].src);
             }
         }
+        const msgText = msgerInput.value;
+        if ((!msgText || msgText.trim() === '') && tabImage.length == 0) return;
+
+        msgerInput.value = "";
+
+        let fetchUrl = '/rooms/' + roomKey + "/messages";
+        let imageId = getCookie('porfilePic');
+
+        console.log(fetchUrl);
 
         // remove the image from the input
-        console.log(msgerInput);
+        // console.log(msgerInput);
         while (msgerInput.nextElementSibling != null) {
             msgerInput.nextElementSibling.remove();
         }
